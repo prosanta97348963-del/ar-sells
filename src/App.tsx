@@ -47,9 +47,12 @@ function MainApp() {
   const [submittedOrderCode, setSubmittedOrderCode] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const isLoggedIn = !!currentUser || !!userProfile;
+  const currentUid = currentUser?.uid || userProfile?.uid || 'user_session';
+
   // Subscriptions
   useEffect(() => {
-    if (!currentUser) return;
+    if (!isLoggedIn) return;
 
     // Subscribe to active customers
     const unsubCust = subscribeToCustomers((data) => setCustomers(data));
@@ -62,7 +65,7 @@ function MainApp() {
     if (isAdmin) {
       unsubOrders = subscribeToAllOrders((data) => setOrders(data));
     } else {
-      unsubOrders = subscribeToSalesmanOrders(currentUser.uid, (data) => setOrders(data));
+      unsubOrders = subscribeToSalesmanOrders(currentUid, (data) => setOrders(data));
     }
 
     // Subscribe to salesmen if admin
@@ -77,7 +80,7 @@ function MainApp() {
       if (unsubOrders) unsubOrders();
       unsubSalesmen();
     };
-  }, [currentUser, isAdmin]);
+  }, [isLoggedIn, currentUid, isAdmin]);
 
   if (authLoading) {
     return (
@@ -88,7 +91,7 @@ function MainApp() {
     );
   }
 
-  if (!currentUser) {
+  if (!isLoggedIn) {
     return <LoginScreen />;
   }
 
@@ -164,8 +167,8 @@ function MainApp() {
     try {
       setSubmittingOrder(true);
       const generatedCode = await submitOrder({
-        salesmanUid: currentUser.uid,
-        salesmanName: userProfile?.name || currentUser.displayName || 'Salesman',
+        salesmanUid: currentUid,
+        salesmanName: userProfile?.name || currentUser?.displayName || 'Salesman',
         customerId: selectedCustomer.id,
         customerName: selectedCustomer.name,
         customerCode: selectedCustomer.code,

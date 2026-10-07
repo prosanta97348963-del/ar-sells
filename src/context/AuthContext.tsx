@@ -23,6 +23,7 @@ interface AuthContextType {
   setActiveRole: (role: 'admin' | 'salesman') => void;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInAsAdmin: () => Promise<void>;
   signInAsDemoSalesman: (name: string) => Promise<void>;
   logout: () => Promise<void>;
   updateSalesmanName: (name: string) => Promise<void>;
@@ -107,24 +108,82 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signInAsAdmin = async () => {
+    try {
+      let uid = 'admin_prosanta';
+      try {
+        const cred = await signInAnonymously(auth);
+        uid = cred.user.uid;
+        await updateProfile(cred.user, { displayName: 'Prosanta (Owner)' });
+      } catch (anonErr) {
+        console.warn('Anonymous sign-in skipped, proceeding with admin session:', anonErr);
+      }
+      const adminProfile: UserProfile = {
+        uid,
+        name: 'Prosanta (Owner)',
+        email: ADMIN_EMAIL,
+        role: 'admin',
+        status: 'active',
+        createdAt: new Date().toISOString(),
+      };
+      try {
+        await setDoc(doc(db, 'users', uid), adminProfile, { merge: true });
+      } catch (e) {
+        console.warn('Firestore user save warning:', e);
+      }
+      setUserProfile(adminProfile);
+      setActiveRole('admin');
+    } catch (err) {
+      console.error('Sign in as admin error:', err);
+      const fallbackAdmin: UserProfile = {
+        uid: 'admin_prosanta',
+        name: 'Prosanta (Owner)',
+        email: ADMIN_EMAIL,
+        role: 'admin',
+        status: 'active',
+      };
+      setUserProfile(fallbackAdmin);
+      setActiveRole('admin');
+    }
+  };
+
   const signInAsDemoSalesman = async (name: string) => {
     try {
-      const cred = await signInAnonymously(auth);
-      await updateProfile(cred.user, { displayName: name });
+      let uid = `salesman_${name.toLowerCase().replace(/[^a-z0-9]/g, '')}_${Date.now()}`;
+      try {
+        const cred = await signInAnonymously(auth);
+        uid = cred.user.uid;
+        await updateProfile(cred.user, { displayName: name });
+      } catch (anonErr) {
+        console.warn('Anonymous sign-in skipped, using fast salesman session:', anonErr);
+      }
       const newProfile: UserProfile = {
-        uid: cred.user.uid,
+        uid,
         name,
         email: `${name.toLowerCase().replace(/\s+/g, '')}@distributor.com`,
         role: 'salesman',
         status: 'active',
         createdAt: new Date().toISOString(),
       };
-      await setDoc(doc(db, 'users', cred.user.uid), newProfile);
+      try {
+        await setDoc(doc(db, 'users', uid), newProfile, { merge: true });
+      } catch (e) {
+        console.warn('Firestore user save warning:', e);
+      }
       setUserProfile(newProfile);
       setActiveRole('salesman');
     } catch (err) {
       console.error('Demo login error:', err);
-      throw err;
+      // Resilient fallback
+      const fallbackProfile: UserProfile = {
+        uid: `salesman_${Date.now()}`,
+        name,
+        email: `${name.toLowerCase().replace(/\s+/g, '')}@distributor.com`,
+        role: 'salesman',
+        status: 'active',
+      };
+      setUserProfile(fallbackProfile);
+      setActiveRole('salesman');
     }
   };
 
@@ -160,6 +219,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setActiveRole,
         loading,
         signInWithGoogle,
+        signInAsAdmin,
         signInAsDemoSalesman,
         logout,
         updateSalesmanName,

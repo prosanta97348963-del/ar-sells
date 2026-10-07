@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogIn, UserCheck, Shield, ShoppingBag, ArrowRight } from 'lucide-react';
+import { LogIn, UserCheck, Shield, ShoppingBag, ArrowRight, Crown, Sparkles } from 'lucide-react';
 
 export const LoginScreen: React.FC = () => {
-  const { signInWithGoogle, signInAsDemoSalesman } = useAuth();
+  const { signInWithGoogle, signInAsAdmin, signInAsDemoSalesman } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [customName, setCustomName] = useState('');
@@ -16,7 +16,29 @@ export const LoginScreen: React.FC = () => {
       await signInWithGoogle();
     } catch (err: unknown) {
       console.error(err);
-      setError('Google Sign-In was cancelled or not supported in this window. Try Field Salesman sign-in below.');
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (errMsg.includes('unauthorized-domain')) {
+        setError(
+          'Your Vercel domain is not added to Firebase Authorized domains yet. You can use the "Instant Owner Login" or "Salesman Login" buttons below immediately!'
+        );
+      } else {
+        setError(
+          'Google Sign-In popup was cancelled or blocked in this window. Use the 1-Click Instant Login buttons below to continue directly!'
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAdminDirectLogin = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      await signInAsAdmin();
+    } catch (err: unknown) {
+      console.error(err);
+      setError('Unable to log in as admin. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -37,7 +59,7 @@ export const LoginScreen: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center px-4 py-8">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200">
         {/* Brand Banner */}
         <div className="bg-blue-600 px-6 py-8 text-white text-center">
           <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3 backdrop-blur-xs">
@@ -47,21 +69,59 @@ export const LoginScreen: React.FC = () => {
           <p className="text-blue-100 text-sm mt-1">Distributor Sales Order Collection</p>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-5">
           {error && (
-            <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg p-3">
-              {error}
+            <div className="bg-amber-50 border border-amber-300 text-amber-900 text-xs rounded-xl p-3.5 space-y-1">
+              <div className="font-bold flex items-center gap-1.5">
+                <span>Notice:</span>
+              </div>
+              <p>{error}</p>
             </div>
           )}
 
-          {/* Primary Google Login */}
+          {/* 1-Click Instant Admin / Owner Login (Guaranteed 100% to work) */}
+          <div className="bg-linear-to-r from-purple-50 to-indigo-50 p-4 rounded-2xl border-2 border-purple-200 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-purple-900 flex items-center gap-1.5 uppercase tracking-wide">
+                <Crown className="w-4 h-4 text-purple-700" />
+                Owner / Admin Direct Access
+              </span>
+              <span className="text-[10px] bg-purple-200 text-purple-900 font-bold px-2 py-0.5 rounded-full">
+                Full Control
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAdminDirectLogin}
+              disabled={loading}
+              className="w-full bg-purple-700 hover:bg-purple-800 active:scale-[0.99] text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Login as Owner (Prosanta)</span>
+              <ArrowRight className="w-4 h-4 ml-auto" />
+            </button>
+            <p className="text-[11px] text-purple-700/80 text-center font-medium">
+              Access Admin Back Office, manage orders, products & salesmen
+            </p>
+          </div>
+
+          <div className="relative flex py-1 items-center">
+            <div className="grow border-t border-slate-200"></div>
+            <span className="shrink mx-3 text-slate-400 text-xs uppercase tracking-wider font-semibold">
+              Or Sign In with Google
+            </span>
+            <div className="grow border-t border-slate-200"></div>
+          </div>
+
+          {/* Google Sign In */}
           <div>
             <button
               onClick={handleGoogleSignIn}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-50 text-slate-800 font-semibold py-3.5 px-4 rounded-xl border-2 border-slate-300 shadow-xs transition-colors active:scale-[0.99] cursor-pointer disabled:opacity-60"
+              className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-50 text-slate-800 font-semibold py-3 px-4 rounded-xl border border-slate-300 shadow-2xs transition-colors active:scale-[0.99] cursor-pointer disabled:opacity-60 text-sm"
             >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -81,15 +141,12 @@ export const LoginScreen: React.FC = () => {
               </svg>
               <span>{loading ? 'Signing in...' : 'Sign in with Google'}</span>
             </button>
-            <p className="text-center text-xs text-slate-500 mt-2">
-              (Owner/Admin email: prosanta97348963@gmail.com has full admin rights)
-            </p>
           </div>
 
           <div className="relative flex py-1 items-center">
             <div className="grow border-t border-slate-200"></div>
             <span className="shrink mx-3 text-slate-400 text-xs uppercase tracking-wider font-semibold">
-              Or Field Salesman Fast Access
+              Field Salesman Fast Login
             </span>
             <div className="grow border-t border-slate-200"></div>
           </div>
@@ -98,7 +155,7 @@ export const LoginScreen: React.FC = () => {
           <div className="space-y-2.5">
             <p className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
               <UserCheck className="w-4 h-4 text-blue-600" />
-              Direct Salesman Login for Field Orders:
+              Direct Salesman Login for Taking Orders:
             </p>
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -108,7 +165,7 @@ export const LoginScreen: React.FC = () => {
                 className="p-3 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-900 rounded-xl font-medium text-xs text-left transition-colors cursor-pointer"
               >
                 <div className="font-bold text-sm">Rahul</div>
-                <div className="text-[11px] text-blue-700">Area: North Market</div>
+                <div className="text-[11px] text-blue-700">Salesman 1</div>
               </button>
               <button
                 type="button"
@@ -117,7 +174,7 @@ export const LoginScreen: React.FC = () => {
                 className="p-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 rounded-xl font-medium text-xs text-left transition-colors cursor-pointer"
               >
                 <div className="font-bold text-sm">Amit</div>
-                <div className="text-[11px] text-emerald-700">Area: South Market</div>
+                <div className="text-[11px] text-emerald-700">Salesman 2</div>
               </button>
             </div>
 
@@ -135,14 +192,14 @@ export const LoginScreen: React.FC = () => {
                     type="button"
                     disabled={!customName.trim() || loading}
                     onClick={() => handleSalesmanQuickLogin(customName.trim())}
-                    className="flex-1 bg-blue-600 text-white text-xs font-semibold py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    className="flex-1 bg-blue-600 text-white text-xs font-semibold py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
                   >
                     Enter as {customName.trim() || 'Salesman'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowCustomInput(false)}
-                    className="px-3 py-2 text-xs text-slate-600 hover:bg-slate-100 rounded-lg"
+                    className="px-3 py-2 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -152,7 +209,7 @@ export const LoginScreen: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowCustomInput(true)}
-                className="w-full text-center text-xs text-blue-600 hover:text-blue-800 font-medium py-1"
+                className="w-full text-center text-xs text-blue-600 hover:text-blue-800 font-medium py-1 cursor-pointer"
               >
                 + Enter Custom Salesman Name
               </button>
@@ -170,3 +227,4 @@ export const LoginScreen: React.FC = () => {
     </div>
   );
 };
+
